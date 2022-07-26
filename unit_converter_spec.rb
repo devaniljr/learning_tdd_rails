@@ -12,20 +12,39 @@ class UnitConverter
 
   def convert
     Quantity.new(
-    @initial_quantity.amount * conversion_factor(from: @initial_quantity.unit, to: @target_unit), @target_unit)
+      @initial_quantity.amount * conversion_factor(
+        from: @initial_quantity.unit, to: @target_unit),
+        @target_unit)
   end
 
 private
 
   CONVERSION_FACTORS = {
-    cup: {
-      liter: 0.236588
+    liter: {
+      cup: 4.226775,
+      liter: 1,
+      pint: 2.11338
+    },
+    gram: {
+      gram: 1,
+      kilgram: 1000
     }
   }
 
   def conversion_factor(from:, to:)
-    CONVERSION_FACTORS[from][to] ||
+    dimension = common_dimension(from, to)
+    if dimension
+      CONVERSION_FACTORS[dimension][to] / CONVERSION_FACTORS[dimension][from]
+    else
       raise(DimensionalMismatchError, "Can't convert to this unit!")
+    end
+  end
+
+  def common_dimension(from, to)
+    CONVERSION_FACTORS.keys.find do |canonical_unit|
+      CONVERSION_FACTORS[canonical_unit].keys.include?(from) &&
+      CONVERSION_FACTORS[canonical_unit].keys.include?(to)
+    end
   end
 end
 
@@ -40,6 +59,16 @@ describe UnitConverter do
 
       expect(result.amount).to be_within(0.001).of(0.473)
       expect(result.unit).to eq(:liter)
+    end
+
+    it "can convert between quantities of the same unit" do
+      cups = Quantity.new(2, :cup)
+      converter = UnitConverter.new(cups, :cup)
+
+      result = converter.convert
+
+      expect(result.amount).to be_within(0.001).of(2)
+      expect(result.unit).to eq(:cup)
     end
 
     it "raises and error if the two quantities are of differing dimensions" do
